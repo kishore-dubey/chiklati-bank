@@ -105,7 +105,8 @@ export interface UnitBusinessApplicationRequestAttributes {
   address: UnitAddress;
   phone: UnitPhone;
   stateOfIncorporation: string;
-  ein?: string;
+  ein: string;
+  businessVertical: string;
   entityType: string;
   yearOfIncorporation: string;
   contact: {

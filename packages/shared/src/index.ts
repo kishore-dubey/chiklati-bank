@@ -20,6 +20,7 @@ export {
 } from "./applications/individual-application.schema.js";
 export {
   businessEntityTypeSchema,
+  businessVerticalSchema,
   businessApplicationInputSchema,
   type BusinessApplicationInput,
 } from "./applications/business-application.schema.js";

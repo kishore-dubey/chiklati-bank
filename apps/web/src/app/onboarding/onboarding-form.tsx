@@ -6,6 +6,9 @@ import type {
   BusinessApplicationInput,
   IndividualApplicationInput,
 } from "@chiklati/shared";
+import { businessVerticalSchema } from "@chiklati/shared";
+
+const BUSINESS_VERTICALS = businessVerticalSchema.options;
 
 type ApplicationKind = "individual" | "business";
 type SandboxOutcome = "approved" | "denied" | "pendingReview";
@@ -50,6 +53,8 @@ function emptyBusiness(): BusinessApplicationInput {
   return {
     type: "business",
     name: "",
+    ein: "",
+    businessVertical: "TechnologyMediaOrTelecom",
     entityType: "LLC",
     stateOfIncorporation: "DE",
     yearOfIncorporation: "2020",
@@ -76,6 +81,8 @@ function sandboxBusiness(outcome: SandboxOutcome): BusinessApplicationInput {
   return {
     type: "business",
     name: `Acme Inc ${Date.now()}`,
+    ein: "123456789",
+    businessVertical: "TechnologyMediaOrTelecom",
     entityType: "LLC",
     stateOfIncorporation: "DE",
     yearOfIncorporation: "2020",
@@ -320,6 +327,25 @@ function BusinessFields({
         onChange={(e) => onChange({ ...value, name: e.target.value })}
         required
       />
+      <input
+        placeholder="EIN (9 digits)"
+        value={value.ein}
+        onChange={(e) => onChange({ ...value, ein: e.target.value })}
+        required
+      />
+      <select
+        value={value.businessVertical}
+        onChange={(e) =>
+          onChange({ ...value, businessVertical: e.target.value as BusinessApplicationInput["businessVertical"] })
+        }
+        required
+      >
+        {BUSINESS_VERTICALS.map((vertical) => (
+          <option key={vertical} value={vertical}>
+            {vertical}
+          </option>
+        ))}
+      </select>
       <input
         placeholder="Street"
         value={value.address.street}

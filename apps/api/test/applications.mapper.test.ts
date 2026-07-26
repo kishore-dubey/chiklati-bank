@@ -21,6 +21,8 @@ const individualInput: IndividualApplicationInput = {
 const businessInput: BusinessApplicationInput = {
   type: "business",
   name: "Acme Inc",
+  ein: "123456789",
+  businessVertical: "TechnologyMediaOrTelecom",
   entityType: "LLC",
   stateOfIncorporation: "DE",
   yearOfIncorporation: "2020",
@@ -65,6 +67,8 @@ describe("applications.mapper", () => {
     const result = toUnitBusinessApplicationAttributes(businessInput, "idem-key-2");
 
     expect(result.name).toBe("Acme Inc");
+    expect(result.ein).toBe("123456789");
+    expect(result.businessVertical).toBe("TechnologyMediaOrTelecom");
     expect(result.officer.title).toBe("CEO");
     expect(result.attestedNoBeneficialOwners).toBe(true);
     expect(result.idempotencyKey).toBe("idem-key-2");

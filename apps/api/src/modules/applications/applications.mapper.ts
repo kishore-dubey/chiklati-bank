@@ -34,6 +34,7 @@ export function toUnitBusinessApplicationAttributes(
     phone: input.phone,
     stateOfIncorporation: input.stateOfIncorporation,
     ein: input.ein,
+    businessVertical: input.businessVertical,
     entityType: input.entityType,
     yearOfIncorporation: input.yearOfIncorporation,
     contact: input.contact,
