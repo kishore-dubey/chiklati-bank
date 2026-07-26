@@ -2,6 +2,7 @@ import { TransactionDirection, prisma } from "@chiklati/db";
 import { logger } from "../../lib/logger.js";
 import { getTransaction } from "../../lib/unit/accounts.resource.js";
 import { applyTransactionCreated } from "../accounts/accounts.repository.js";
+import { findCardByUnitCardId } from "../cards/cards.repository.js";
 import { findPaymentByUnitPaymentId } from "../payments/payments.repository.js";
 import { getRelationshipId } from "./webhook-event.utils.js";
 import type { IncomingUnitEvent } from "./webhooks.service.js";
@@ -41,6 +42,12 @@ export async function handleTransactionCreated(
   const unitPaymentId = getRelationshipId(unitDocument.data, "payment");
   const payment = unitPaymentId ? await findPaymentByUnitPaymentId(unitPaymentId) : null;
 
+  // Confirmed empirically (Phase 4): a card-produced purchaseTransaction's
+  // fetched resource does carry relationships.card. Same outside-the-lock
+  // placement and same graceful degrade-to-undefined as payment above.
+  const unitCardId = getRelationshipId(unitDocument.data, "card");
+  const card = unitCardId ? await findCardByUnitCardId(unitCardId) : null;
+
   const result = await applyTransactionCreated({
     unitAccountId,
     unitTransactionId,
@@ -53,6 +60,7 @@ export async function handleTransactionCreated(
     unitCreatedAt: new Date(attrs.createdAt),
     eventCreatedAt,
     paymentId: payment?.id,
+    cardId: card?.id,
   });
 
   if (!result) {

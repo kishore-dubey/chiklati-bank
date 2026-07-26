@@ -19,6 +19,7 @@ export type {
   Transaction,
   Counterparty,
   Payment,
+  Card,
   WebhookEvent,
 } from "@prisma/client";
 export {
@@ -34,5 +35,7 @@ export {
   CounterpartyAccountType,
   CounterpartyType,
   CounterpartyPermissions,
+  CardType,
+  CardStatus,
   WebhookEventStatus,
 } from "@prisma/client";

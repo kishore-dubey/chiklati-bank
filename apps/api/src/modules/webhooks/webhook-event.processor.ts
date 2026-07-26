@@ -1,6 +1,7 @@
 import { ApplicationStatus, CustomerStatus, CustomerType, WebhookEventStatus, prisma } from "@chiklati/db";
 import { logger } from "../../lib/logger.js";
 import { handleAccountEvent } from "./account-event.handler.js";
+import { handleCardEvent } from "./card-event.handler.js";
 import { handlePaymentEvent } from "./payment-event.handler.js";
 import { handleTransactionCreated, handleTransactionUpdated } from "./transaction-event.handler.js";
 import { getEventCreatedAt, getRelationshipId } from "./webhook-event.utils.js";
@@ -18,6 +19,7 @@ interface MarkEventOptions {
   applicationId?: string;
   accountId?: string;
   paymentId?: string;
+  cardId?: string;
   error?: string;
 }
 
@@ -34,6 +36,7 @@ async function markEvent(
       ...(options.applicationId ? { applicationId: options.applicationId } : {}),
       ...(options.accountId ? { accountId: options.accountId } : {}),
       ...(options.paymentId ? { paymentId: options.paymentId } : {}),
+      ...(options.cardId ? { cardId: options.cardId } : {}),
       ...(options.error ? { error: options.error } : {}),
     },
   });
@@ -210,6 +213,14 @@ export async function processWebhookEvent(webhookEventId: string): Promise<void>
       const { paymentId, applied } = await handlePaymentEvent(event, eventCreatedAt);
       await markEvent(webhookEventId, applied ? WebhookEventStatus.Processed : WebhookEventStatus.Skipped, {
         paymentId,
+      });
+      return;
+    }
+
+    if (event.type.startsWith("card.")) {
+      const { cardId, applied } = await handleCardEvent(event, eventCreatedAt);
+      await markEvent(webhookEventId, applied ? WebhookEventStatus.Processed : WebhookEventStatus.Skipped, {
+        cardId,
       });
       return;
     }

@@ -26,6 +26,8 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
       <Link href="/onboarding">Open an account (new application)</Link>
       {" | "}
       <Link href="/payments">Payments</Link>
+      {" | "}
+      <Link href="/cards">Cards</Link>
 
       <h2>Customers</h2>
       {customers.length === 0 ? (

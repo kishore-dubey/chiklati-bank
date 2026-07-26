@@ -94,3 +94,18 @@ export {
   type PaymentStatus,
   type PaymentResponse,
 } from "./payments/payment-response.schema.js";
+
+export {
+  cardholderSchema,
+  createCardInputSchema,
+  type Cardholder,
+  type CreateCardInput,
+} from "./cards/create-card.schema.js";
+export {
+  cardTypeSchema,
+  cardStatusSchema,
+  cardResponseSchema,
+  type CardType,
+  type CardStatus,
+  type CardResponse,
+} from "./cards/card-response.schema.js";

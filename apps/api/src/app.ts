@@ -8,6 +8,7 @@ import { customersRoutes } from "./modules/customers/customers.routes.js";
 import { accountsRoutes } from "./modules/accounts/accounts.routes.js";
 import { counterpartiesRoutes } from "./modules/counterparties/counterparties.routes.js";
 import { paymentsRoutes } from "./modules/payments/payments.routes.js";
+import { cardsRoutes } from "./modules/cards/cards.routes.js";
 import { sandboxRoutes } from "./modules/sandbox/sandbox.routes.js";
 
 export function buildApp(): FastifyInstance {
@@ -20,6 +21,7 @@ export function buildApp(): FastifyInstance {
   app.register(accountsRoutes);
   app.register(counterpartiesRoutes);
   app.register(paymentsRoutes);
+  app.register(cardsRoutes);
 
   // Wraps Unit's own /sandbox/* simulation endpoints -- meaningless (and
   // absent) outside Unit's sandbox environment, so never registered in prod.

@@ -96,6 +96,7 @@ export interface ApplyTransactionCreatedInput {
   unitCreatedAt: Date;
   eventCreatedAt: Date;
   paymentId?: string;
+  cardId?: string;
 }
 
 interface AccountLockRow {
@@ -143,6 +144,7 @@ export async function applyTransactionCreated(
         unitTransactionId: input.unitTransactionId,
         accountId: account.id,
         paymentId: input.paymentId ?? undefined,
+        cardId: input.cardId ?? undefined,
         type: input.type,
         direction: input.direction,
         amount: input.amount,

@@ -20,6 +20,7 @@ model User {
   accounts      Account[]
   counterparties Counterparty[]
   payments      Payment[]
+  cards         Card[]
 
   @@map("users")
 }
@@ -103,6 +104,21 @@ enum WebhookEventStatus {
   Skipped
 }
 
+enum CardType {
+  IndividualVirtual
+  BusinessVirtual
+}
+
+enum CardStatus {
+  Active
+  Inactive
+  Frozen
+  ClosedByCustomer
+  Stolen
+  Lost
+  SuspectedFraud
+}
+
 model Application {
   id                String            @id @default(uuid())
   unitApplicationId String            @unique
@@ -133,6 +149,7 @@ model Customer {
   lastEventAt    DateTime?
   accounts       Account[]
   counterparties Counterparty[]
+  cards          Card[]
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
@@ -159,6 +176,7 @@ model Account {
   lastEventAt    DateTime?
   transactions   Transaction[]
   payments       Payment[]
+  cards          Card[]
   webhookEvents  WebhookEvent[]
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
@@ -175,6 +193,8 @@ model Transaction {
   account           Account              @relation(fields: [accountId], references: [id])
   paymentId         String?
   payment           Payment?             @relation(fields: [paymentId], references: [id])
+  cardId            String?
+  card              Card?                @relation(fields: [cardId], references: [id])
   type              String
   direction         TransactionDirection
   amount            BigInt
@@ -241,6 +261,32 @@ model Payment {
   @@map("payments")
 }
 
+model Card {
+  id             String         @id @default(uuid())
+  unitCardId     String         @unique
+  accountId      String
+  account        Account        @relation(fields: [accountId], references: [id])
+  customerId     String
+  customer       Customer       @relation(fields: [customerId], references: [id])
+  userId         String
+  user           User           @relation(fields: [userId], references: [id])
+  type           CardType
+  status         CardStatus     @default(Active)
+  last4Digits    String
+  expirationDate String
+  tags           Json?
+  lastEventAt    DateTime?
+  transactions   Transaction[]
+  webhookEvents  WebhookEvent[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([userId])
+  @@index([accountId])
+  @@index([customerId])
+  @@map("cards")
+}
+
 model WebhookEvent {
   id            String             @id @default(uuid())
   unitEventId   String             @unique
@@ -252,6 +298,8 @@ model WebhookEvent {
   account       Account?           @relation(fields: [accountId], references: [id])
   paymentId     String?
   payment       Payment?           @relation(fields: [paymentId], references: [id])
+  cardId        String?
+  card          Card?              @relation(fields: [cardId], references: [id])
   status        WebhookEventStatus @default(Pending)
   receivedAt    DateTime           @default(now())
   processedAt   DateTime?

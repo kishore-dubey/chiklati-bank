@@ -30,6 +30,7 @@ const transaction: Transaction = {
   unitTransactionId: "999",
   accountId: "acc-1",
   paymentId: null,
+  cardId: null,
   type: "book",
   direction: TransactionDirection.Credit,
   amount: 5000n,

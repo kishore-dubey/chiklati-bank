@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { internalAuthGuard } from "../../lib/auth/internal-auth.js";
-import { postAchClear, postAchTransmit, postWireTransmit } from "./sandbox.controller.js";
+import { postAchClear, postAchTransmit, postCardPurchase, postWireTransmit } from "./sandbox.controller.js";
 
 export async function sandboxRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Params: { id: string } }>(
@@ -19,5 +19,11 @@ export async function sandboxRoutes(app: FastifyInstance): Promise<void> {
     "/sandbox/payments/:id/wire/transmit",
     { preHandler: [internalAuthGuard] },
     postWireTransmit,
+  );
+
+  app.post<{ Params: { id: string } }>(
+    "/sandbox/cards/:id/purchase",
+    { preHandler: [internalAuthGuard] },
+    postCardPurchase,
   );
 }

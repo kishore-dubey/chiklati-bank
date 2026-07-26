@@ -64,6 +64,7 @@ describe("accounts.repository applyTransactionCreated (real local Postgres)", ()
   afterAll(async () => {
     await prisma.transaction.deleteMany({ where: { accountId } });
     await prisma.payment.deleteMany({ where: { userId } });
+    await prisma.card.deleteMany({ where: { userId } });
     await prisma.account.deleteMany({ where: { userId } });
     await prisma.customer.deleteMany({ where: { userId } });
     await prisma.application.deleteMany({ where: { userId } });
@@ -257,6 +258,42 @@ describe("accounts.repository applyTransactionCreated (real local Postgres)", ()
 
     const transaction = await prisma.transaction.findUnique({ where: { unitTransactionId } });
     expect(transaction?.paymentId).toBeNull();
+    expect(transaction?.cardId).toBeNull();
+  });
+
+  it("links the resulting transaction to a card when cardId is provided", async () => {
+    const card = await prisma.card.create({
+      data: {
+        unitCardId: `test-card-${randomUUID()}`,
+        accountId,
+        customerId: (await prisma.account.findUniqueOrThrow({ where: { id: accountId } })).customerId,
+        userId,
+        type: "BusinessVirtual",
+        status: "Active",
+        last4Digits: "3545",
+        expirationDate: "2030-07",
+      },
+    });
+    const unitTransactionId = `txn-card-${randomUUID()}`;
+
+    const result = await applyTransactionCreated({
+      unitAccountId,
+      unitTransactionId,
+      type: "purchaseTransaction",
+      direction: TransactionDirection.Debit,
+      amount: 1500n,
+      postTransactionBalance: 2250n,
+      summary: "Purchase from Coffee Shop",
+      tags: null,
+      unitCreatedAt: new Date(),
+      eventCreatedAt: new Date("2026-03-03T00:00:00.000Z"),
+      cardId: card.id,
+    });
+
+    expect(result?.applied).toBe(true);
+
+    const transaction = await prisma.transaction.findUnique({ where: { unitTransactionId } });
+    expect(transaction?.cardId).toBe(card.id);
   });
 
   it("returns null for a transaction on an unknown account", async () => {
