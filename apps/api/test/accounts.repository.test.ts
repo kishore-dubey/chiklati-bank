@@ -63,6 +63,7 @@ describe("accounts.repository applyTransactionCreated (real local Postgres)", ()
 
   afterAll(async () => {
     await prisma.transaction.deleteMany({ where: { accountId } });
+    await prisma.payment.deleteMany({ where: { userId } });
     await prisma.account.deleteMany({ where: { userId } });
     await prisma.customer.deleteMany({ where: { userId } });
     await prisma.application.deleteMany({ where: { userId } });
@@ -198,6 +199,64 @@ describe("accounts.repository applyTransactionCreated (real local Postgres)", ()
     const account = await prisma.account.findUnique({ where: { id: accountId } });
     expect(account?.balance).toBe(2000n);
     expect(account?.lastEventAt?.toISOString()).toBe(later.toISOString());
+  });
+
+  it("links the resulting transaction to a payment when paymentId is provided", async () => {
+    const payment = await prisma.payment.create({
+      data: {
+        unitPaymentId: `test-pay-${randomUUID()}`,
+        rail: "Book",
+        accountId,
+        userId,
+        direction: "Credit",
+        amount: 1500n,
+        status: "Sent",
+        description: "Test payment linkage",
+        counterpartySnapshot: {},
+      },
+    });
+    const unitTransactionId = `txn-payment-${randomUUID()}`;
+
+    const result = await applyTransactionCreated({
+      unitAccountId,
+      unitTransactionId,
+      type: "bookTransaction",
+      direction: TransactionDirection.Credit,
+      amount: 1500n,
+      postTransactionBalance: 3500n,
+      summary: "Linked to payment",
+      tags: null,
+      unitCreatedAt: new Date(),
+      eventCreatedAt: new Date("2026-03-01T00:00:00.000Z"),
+      paymentId: payment.id,
+    });
+
+    expect(result?.applied).toBe(true);
+
+    const transaction = await prisma.transaction.findUnique({ where: { unitTransactionId } });
+    expect(transaction?.paymentId).toBe(payment.id);
+  });
+
+  it("still works when paymentId is omitted (backward compatibility)", async () => {
+    const unitTransactionId = `txn-no-payment-${randomUUID()}`;
+
+    const result = await applyTransactionCreated({
+      unitAccountId,
+      unitTransactionId,
+      type: "book",
+      direction: TransactionDirection.Credit,
+      amount: 250n,
+      postTransactionBalance: 3750n,
+      summary: "No payment link",
+      tags: null,
+      unitCreatedAt: new Date(),
+      eventCreatedAt: new Date("2026-03-02T00:00:00.000Z"),
+    });
+
+    expect(result?.applied).toBe(true);
+
+    const transaction = await prisma.transaction.findUnique({ where: { unitTransactionId } });
+    expect(transaction?.paymentId).toBeNull();
   });
 
   it("returns null for a transaction on an unknown account", async () => {

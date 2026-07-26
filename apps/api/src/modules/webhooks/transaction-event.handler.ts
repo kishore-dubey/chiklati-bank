@@ -2,6 +2,7 @@ import { TransactionDirection, prisma } from "@chiklati/db";
 import { logger } from "../../lib/logger.js";
 import { getTransaction } from "../../lib/unit/accounts.resource.js";
 import { applyTransactionCreated } from "../accounts/accounts.repository.js";
+import { findPaymentByUnitPaymentId } from "../payments/payments.repository.js";
 import { getRelationshipId } from "./webhook-event.utils.js";
 import type { IncomingUnitEvent } from "./webhooks.service.js";
 
@@ -32,6 +33,14 @@ export async function handleTransactionCreated(
   const unitDocument = await getTransaction(unitAccountId, unitTransactionId);
   const attrs = unitDocument.data.attributes;
 
+  // Must-verify-empirically: whether Unit's Transaction resource actually
+  // includes a `payment` relationship for rail-produced transactions.
+  // Resolved outside the locked section (below) to keep that critical
+  // section as short as it already is -- degrades gracefully either way,
+  // staying undefined/null if the relationship is absent.
+  const unitPaymentId = getRelationshipId(unitDocument.data, "payment");
+  const payment = unitPaymentId ? await findPaymentByUnitPaymentId(unitPaymentId) : null;
+
   const result = await applyTransactionCreated({
     unitAccountId,
     unitTransactionId,
@@ -43,6 +52,7 @@ export async function handleTransactionCreated(
     tags: attrs.tags ?? null,
     unitCreatedAt: new Date(attrs.createdAt),
     eventCreatedAt,
+    paymentId: payment?.id,
   });
 
   if (!result) {

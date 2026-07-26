@@ -1,6 +1,7 @@
 import { ApplicationStatus, CustomerStatus, CustomerType, WebhookEventStatus, prisma } from "@chiklati/db";
 import { logger } from "../../lib/logger.js";
 import { handleAccountEvent } from "./account-event.handler.js";
+import { handlePaymentEvent } from "./payment-event.handler.js";
 import { handleTransactionCreated, handleTransactionUpdated } from "./transaction-event.handler.js";
 import { getEventCreatedAt, getRelationshipId } from "./webhook-event.utils.js";
 import type { IncomingUnitEvent } from "./webhooks.service.js";
@@ -16,6 +17,7 @@ const APPLICATION_STATUS_EVENTS: Record<string, ApplicationStatus> = {
 interface MarkEventOptions {
   applicationId?: string;
   accountId?: string;
+  paymentId?: string;
   error?: string;
 }
 
@@ -31,6 +33,7 @@ async function markEvent(
       processedAt: new Date(),
       ...(options.applicationId ? { applicationId: options.applicationId } : {}),
       ...(options.accountId ? { accountId: options.accountId } : {}),
+      ...(options.paymentId ? { paymentId: options.paymentId } : {}),
       ...(options.error ? { error: options.error } : {}),
     },
   });
@@ -200,6 +203,14 @@ export async function processWebhookEvent(webhookEventId: string): Promise<void>
     if (event.type === "transaction.updated") {
       await handleTransactionUpdated(event, eventCreatedAt);
       await markEvent(webhookEventId, WebhookEventStatus.Processed);
+      return;
+    }
+
+    if (event.type.startsWith("payment.")) {
+      const { paymentId, applied } = await handlePaymentEvent(event, eventCreatedAt);
+      await markEvent(webhookEventId, applied ? WebhookEventStatus.Processed : WebhookEventStatus.Skipped, {
+        paymentId,
+      });
       return;
     }
 

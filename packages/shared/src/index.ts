@@ -61,3 +61,36 @@ export {
   type TransactionDirection,
   type TransactionResponse,
 } from "./accounts/transaction-response.schema.js";
+
+export {
+  counterpartyAccountTypeSchema,
+  counterpartyTypeSchema,
+  counterpartyPermissionsSchema,
+  createCounterpartyInputSchema,
+  type CreateCounterpartyInput,
+} from "./counterparties/create-counterparty.schema.js";
+export {
+  counterpartyResponseSchema,
+  type CounterpartyResponse,
+} from "./counterparties/counterparty-response.schema.js";
+
+export {
+  bookPaymentInputSchema,
+  achPaymentInputSchema,
+  wirePaymentInputSchema,
+  createPaymentInputSchema,
+  type BookPaymentInput,
+  type AchPaymentInput,
+  type WirePaymentInput,
+  type CreatePaymentInput,
+} from "./payments/create-payment.schema.js";
+export {
+  paymentRailSchema,
+  paymentDirectionSchema,
+  paymentStatusSchema,
+  paymentResponseSchema,
+  type PaymentRail,
+  type PaymentDirection,
+  type PaymentStatus,
+  type PaymentResponse,
+} from "./payments/payment-response.schema.js";

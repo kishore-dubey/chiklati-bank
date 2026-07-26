@@ -15,9 +15,11 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  applications Application[]
-  customers    Customer[]
-  accounts     Account[]
+  applications  Application[]
+  customers     Customer[]
+  accounts      Account[]
+  counterparties Counterparty[]
+  payments      Payment[]
 
   @@map("users")
 }
@@ -56,6 +58,44 @@ enum TransactionDirection {
   Debit
 }
 
+enum PaymentRail {
+  Book
+  Ach
+  Wire
+}
+
+enum PaymentDirection {
+  Credit
+  Debit
+}
+
+enum PaymentStatus {
+  Pending
+  PendingReview
+  Clearing
+  Sent
+  Rejected
+  Canceled
+}
+
+enum CounterpartyAccountType {
+  Checking
+  Savings
+  Loan
+}
+
+enum CounterpartyType {
+  Business
+  Person
+  Unknown
+}
+
+enum CounterpartyPermissions {
+  CreditOnly
+  DebitOnly
+  CreditAndDebit
+}
+
 enum WebhookEventStatus {
   Pending
   Processed
@@ -92,6 +132,7 @@ model Customer {
   user           User           @relation(fields: [userId], references: [id])
   lastEventAt    DateTime?
   accounts       Account[]
+  counterparties Counterparty[]
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
@@ -117,6 +158,7 @@ model Account {
   tags           Json?
   lastEventAt    DateTime?
   transactions   Transaction[]
+  payments       Payment[]
   webhookEvents  WebhookEvent[]
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
@@ -131,6 +173,8 @@ model Transaction {
   unitTransactionId String               @unique
   accountId         String
   account           Account              @relation(fields: [accountId], references: [id])
+  paymentId         String?
+  payment           Payment?             @relation(fields: [paymentId], references: [id])
   type              String
   direction         TransactionDirection
   amount            BigInt
@@ -146,6 +190,57 @@ model Transaction {
   @@map("transactions")
 }
 
+model Counterparty {
+  id                 String                    @id @default(uuid())
+  unitCounterpartyId String                    @unique
+  customerId         String
+  customer           Customer                  @relation(fields: [customerId], references: [id])
+  userId             String
+  user               User                      @relation(fields: [userId], references: [id])
+  name               String
+  routingNumber      String
+  accountNumber      String
+  accountType        CounterpartyAccountType
+  type               CounterpartyType
+  permissions        CounterpartyPermissions?
+  tags               Json?
+  payments           Payment[]
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+
+  @@index([userId])
+  @@index([customerId])
+  @@map("counterparties")
+}
+
+model Payment {
+  id                   String            @id @default(uuid())
+  unitPaymentId        String            @unique
+  rail                 PaymentRail
+  accountId            String
+  account              Account           @relation(fields: [accountId], references: [id])
+  userId               String
+  user                 User              @relation(fields: [userId], references: [id])
+  direction            PaymentDirection  @default(Credit)
+  amount               BigInt
+  status               PaymentStatus
+  description          String
+  counterpartyId       String?
+  counterparty         Counterparty?     @relation(fields: [counterpartyId], references: [id])
+  counterpartySnapshot Json
+  tags                 Json?
+  lastEventAt          DateTime?
+  transactions         Transaction[]
+  webhookEvents        WebhookEvent[]
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  @@index([userId])
+  @@index([accountId])
+  @@index([counterpartyId])
+  @@map("payments")
+}
+
 model WebhookEvent {
   id            String             @id @default(uuid())
   unitEventId   String             @unique
@@ -155,6 +250,8 @@ model WebhookEvent {
   application   Application?       @relation(fields: [applicationId], references: [id])
   accountId     String?
   account       Account?           @relation(fields: [accountId], references: [id])
+  paymentId     String?
+  payment       Payment?           @relation(fields: [paymentId], references: [id])
   status        WebhookEventStatus @default(Pending)
   receivedAt    DateTime           @default(now())
   processedAt   DateTime?

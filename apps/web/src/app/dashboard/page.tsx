@@ -24,6 +24,8 @@ export default async function DashboardPage(): Promise<React.ReactElement> {
       <h1>Dashboard</h1>
       <p>Signed in as {session?.user?.email}</p>
       <Link href="/onboarding">Open an account (new application)</Link>
+      {" | "}
+      <Link href="/payments">Payments</Link>
 
       <h2>Customers</h2>
       {customers.length === 0 ? (
