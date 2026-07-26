@@ -1,0 +1,23 @@
+{
+  "name": "@chiklati/shared",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"no tests yet\""
+  },
+  "dependencies": {
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@chiklati/config": "workspace:*",
+    "@types/node": "24.10.1",
+    "typescript": "6.0.3",
+    "eslint": "9.39.5"
+  }
+}

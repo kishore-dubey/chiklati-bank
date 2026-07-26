@@ -1,0 +1,32 @@
+{
+  "name": "@chiklati/db",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "scripts": {
+    "generate": "prisma generate",
+    "build": "tsc -p tsconfig.build.json",
+    "migrate:dev": "prisma migrate dev",
+    "seed": "prisma db seed",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "echo \"no tests yet\""
+  },
+  "dependencies": {
+    "@prisma/client": "6.19.2",
+    "bcryptjs": "3.0.3"
+  },
+  "devDependencies": {
+    "@chiklati/config": "workspace:*",
+    "@types/node": "24.10.1",
+    "prisma": "6.19.2",
+    "typescript": "6.0.3",
+    "tsx": "4.23.1",
+    "eslint": "9.39.5"
+  }
+}
