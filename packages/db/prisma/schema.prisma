@@ -15,5 +15,90 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  applications Application[]
+  customers    Customer[]
+
   @@map("users")
+}
+
+enum ApplicationType {
+  Individual
+  Business
+}
+
+enum ApplicationStatus {
+  AwaitingDocuments
+  PendingReview
+  Approved
+  Denied
+  Canceled
+}
+
+enum CustomerType {
+  Individual
+  Business
+}
+
+enum CustomerStatus {
+  Active
+  Archived
+}
+
+enum WebhookEventStatus {
+  Pending
+  Processed
+  Failed
+  Skipped
+}
+
+model Application {
+  id                String            @id @default(uuid())
+  unitApplicationId String            @unique
+  userId            String
+  user              User              @relation(fields: [userId], references: [id])
+  type              ApplicationType
+  status            ApplicationStatus @default(AwaitingDocuments)
+  applicantSnapshot Json
+  lastEventAt       DateTime?
+  customer          Customer?
+  webhookEvents     WebhookEvent[]
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@index([userId])
+  @@map("applications")
+}
+
+model Customer {
+  id             String         @id @default(uuid())
+  unitCustomerId String         @unique
+  type           CustomerType
+  status         CustomerStatus @default(Active)
+  applicationId  String         @unique
+  application    Application    @relation(fields: [applicationId], references: [id])
+  userId         String
+  user           User           @relation(fields: [userId], references: [id])
+  lastEventAt    DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([userId])
+  @@map("customers")
+}
+
+model WebhookEvent {
+  id            String              @id @default(uuid())
+  unitEventId   String              @unique
+  type          String
+  payload       Json
+  applicationId String?
+  application   Application?        @relation(fields: [applicationId], references: [id])
+  status        WebhookEventStatus  @default(Pending)
+  receivedAt    DateTime            @default(now())
+  processedAt   DateTime?
+  error         String?
+  createdAt     DateTime            @default(now())
+
+  @@index([status])
+  @@map("webhook_events")
 }

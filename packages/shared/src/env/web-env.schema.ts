@@ -5,6 +5,8 @@ export const webEnvSchema = z.object({
   DATABASE_URL: z.url(),
   NEXTAUTH_URL: z.url(),
   NEXTAUTH_SECRET: z.string().min(1, "NEXTAUTH_SECRET is required"),
+  API_URL: z.url().default("http://localhost:4000"),
+  INTERNAL_API_SECRET: z.string().min(1, "INTERNAL_API_SECRET is required"),
 });
 
 export type WebEnv = z.infer<typeof webEnvSchema>;

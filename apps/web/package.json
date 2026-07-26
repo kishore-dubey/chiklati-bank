@@ -14,6 +14,7 @@
     "@chiklati/db": "workspace:*",
     "@chiklati/shared": "workspace:*",
     "bcryptjs": "3.0.3",
+    "jose": "6.2.4",
     "next": "16.2.12",
     "next-auth": "5.0.0-beta.32",
     "react": "19.2.8",

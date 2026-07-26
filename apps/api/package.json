@@ -5,8 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch --env-file=.env src/server.ts",
+    "worker": "tsx watch --env-file=.env src/worker.ts",
     "build": "tsc -p tsconfig.build.json",
     "start": "node --env-file=.env dist/server.js",
+    "start:worker": "node --env-file=.env dist/worker.js",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
@@ -18,6 +20,7 @@
     "fastify-type-provider-zod": "7.0.0",
     "ioredis": "5.11.1",
     "bullmq": "5.81.2",
+    "jose": "6.2.4",
     "pino": "10.3.1",
     "zod": "4.4.3"
   },
