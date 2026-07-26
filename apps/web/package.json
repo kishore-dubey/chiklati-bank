@@ -13,6 +13,11 @@
   "dependencies": {
     "@chiklati/db": "workspace:*",
     "@chiklati/shared": "workspace:*",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
+    "@mui/icons-material": "^9.2.0",
+    "@mui/material": "^9.2.0",
+    "@mui/material-nextjs": "^9.1.1",
     "bcryptjs": "3.0.3",
     "jose": "6.2.4",
     "next": "16.2.12",
