@@ -11,11 +11,13 @@ if (process.env["NODE_ENV"] !== "production") {
 }
 
 export { PrismaClient } from "@prisma/client";
-export type { User, Application, Customer, WebhookEvent } from "@prisma/client";
+export type { User, Application, Customer, Account, Transaction, WebhookEvent } from "@prisma/client";
 export {
   ApplicationType,
   ApplicationStatus,
   CustomerType,
   CustomerStatus,
+  AccountStatus,
+  TransactionDirection,
   WebhookEventStatus,
 } from "@prisma/client";

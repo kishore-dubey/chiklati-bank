@@ -1,5 +1,8 @@
 import { ApplicationStatus, CustomerStatus, CustomerType, WebhookEventStatus, prisma } from "@chiklati/db";
 import { logger } from "../../lib/logger.js";
+import { handleAccountEvent } from "./account-event.handler.js";
+import { handleTransactionCreated, handleTransactionUpdated } from "./transaction-event.handler.js";
+import { getEventCreatedAt, getRelationshipId } from "./webhook-event.utils.js";
 import type { IncomingUnitEvent } from "./webhooks.service.js";
 
 const APPLICATION_STATUS_EVENTS: Record<string, ApplicationStatus> = {
@@ -10,32 +13,25 @@ const APPLICATION_STATUS_EVENTS: Record<string, ApplicationStatus> = {
   "application.canceled": ApplicationStatus.Canceled,
 };
 
-function getRelationshipId(event: IncomingUnitEvent, relationshipName: string): string | undefined {
-  const data = event.relationships?.[relationshipName]?.data;
-  if (!data || Array.isArray(data)) {
-    return undefined;
-  }
-  return data.id;
-}
-
-function getEventCreatedAt(event: IncomingUnitEvent): Date {
-  const raw = event.attributes?.["createdAt"];
-  return typeof raw === "string" ? new Date(raw) : new Date();
+interface MarkEventOptions {
+  applicationId?: string;
+  accountId?: string;
+  error?: string;
 }
 
 async function markEvent(
   webhookEventId: string,
   status: WebhookEventStatus,
-  applicationId?: string,
-  error?: string,
+  options: MarkEventOptions = {},
 ): Promise<void> {
   await prisma.webhookEvent.update({
     where: { id: webhookEventId },
     data: {
       status,
       processedAt: new Date(),
-      ...(applicationId ? { applicationId } : {}),
-      ...(error ? { error } : {}),
+      ...(options.applicationId ? { applicationId: options.applicationId } : {}),
+      ...(options.accountId ? { accountId: options.accountId } : {}),
+      ...(options.error ? { error: options.error } : {}),
     },
   });
 }
@@ -148,7 +144,7 @@ export async function processWebhookEvent(webhookEventId: string): Promise<void>
       const application = unitApplicationId
         ? await prisma.application.findUnique({ where: { unitApplicationId } })
         : null;
-      await markEvent(webhookEventId, WebhookEventStatus.Processed, application?.id);
+      await markEvent(webhookEventId, WebhookEventStatus.Processed, { applicationId: application?.id });
       return;
     }
 
@@ -161,7 +157,7 @@ export async function processWebhookEvent(webhookEventId: string): Promise<void>
       );
 
       if (!applied) {
-        await markEvent(webhookEventId, WebhookEventStatus.Skipped, applicationId);
+        await markEvent(webhookEventId, WebhookEventStatus.Skipped, { applicationId });
         return;
       }
 
@@ -169,7 +165,7 @@ export async function processWebhookEvent(webhookEventId: string): Promise<void>
         await upsertCustomerFromApprovedEvent(event, applicationId, eventCreatedAt);
       }
 
-      await markEvent(webhookEventId, WebhookEventStatus.Processed, applicationId);
+      await markEvent(webhookEventId, WebhookEventStatus.Processed, { applicationId });
       return;
     }
 
@@ -185,13 +181,35 @@ export async function processWebhookEvent(webhookEventId: string): Promise<void>
       return;
     }
 
+    if (event.type.startsWith("account.")) {
+      const { accountId, applied } = await handleAccountEvent(event, eventCreatedAt);
+      await markEvent(webhookEventId, applied ? WebhookEventStatus.Processed : WebhookEventStatus.Skipped, {
+        accountId,
+      });
+      return;
+    }
+
+    if (event.type === "transaction.created") {
+      const { accountId, applied } = await handleTransactionCreated(event, eventCreatedAt);
+      await markEvent(webhookEventId, applied ? WebhookEventStatus.Processed : WebhookEventStatus.Skipped, {
+        accountId,
+      });
+      return;
+    }
+
+    if (event.type === "transaction.updated") {
+      await handleTransactionUpdated(event, eventCreatedAt);
+      await markEvent(webhookEventId, WebhookEventStatus.Processed);
+      return;
+    }
+
     // document.* and any other/future event types: acknowledged, no local
     // mutation modeled yet -- per CLAUDE.md, new event types must not break
     // the listener.
     await markEvent(webhookEventId, WebhookEventStatus.Processed);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    await markEvent(webhookEventId, WebhookEventStatus.Failed, undefined, message);
+    await markEvent(webhookEventId, WebhookEventStatus.Failed, { error: message });
     throw error;
   }
 }

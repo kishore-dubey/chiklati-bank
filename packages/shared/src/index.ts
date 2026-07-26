@@ -35,3 +35,29 @@ export {
   type ApplicationStatus,
   type ApplicationResponse,
 } from "./applications/application-response.schema.js";
+
+export {
+  customerTypeSchema,
+  customerStatusSchema,
+  customerResponseSchema,
+  type CustomerType,
+  type CustomerStatus,
+  type CustomerResponse,
+} from "./customers/customer-response.schema.js";
+
+export {
+  createAccountInputSchema,
+  type CreateAccountInput,
+} from "./accounts/create-account.schema.js";
+export {
+  accountStatusSchema,
+  accountResponseSchema,
+  type AccountStatus,
+  type AccountResponse,
+} from "./accounts/account-response.schema.js";
+export {
+  transactionDirectionSchema,
+  transactionResponseSchema,
+  type TransactionDirection,
+  type TransactionResponse,
+} from "./accounts/transaction-response.schema.js";

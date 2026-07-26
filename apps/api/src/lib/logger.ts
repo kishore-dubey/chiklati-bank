@@ -11,6 +11,7 @@ export const loggerOptions: pino.LoggerOptions = {
       "*.token",
       "*.cardNumber",
       "*.cvv",
+      "*.accountNumber",
       "req.headers.authorization",
       "req.headers.cookie",
     ],

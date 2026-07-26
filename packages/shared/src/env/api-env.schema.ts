@@ -9,6 +9,7 @@ export const apiEnvSchema = z.object({
   UNIT_API_BASE_URL: z.url().default("https://api.s.unit.sh"),
   UNIT_API_TOKEN: z.string().min(1, "UNIT_API_TOKEN is required"),
   UNIT_WEBHOOK_SECRET: z.string().min(1, "UNIT_WEBHOOK_SECRET is required"),
+  UNIT_DEFAULT_DEPOSIT_PRODUCT: z.string().min(1).default("checking"),
   INTERNAL_API_SECRET: z.string().min(1, "INTERNAL_API_SECRET is required"),
 });
 

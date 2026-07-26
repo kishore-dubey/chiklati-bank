@@ -17,6 +17,7 @@ model User {
 
   applications Application[]
   customers    Customer[]
+  accounts     Account[]
 
   @@map("users")
 }
@@ -42,6 +43,17 @@ enum CustomerType {
 enum CustomerStatus {
   Active
   Archived
+}
+
+enum AccountStatus {
+  Open
+  Frozen
+  Closed
+}
+
+enum TransactionDirection {
+  Credit
+  Debit
 }
 
 enum WebhookEventStatus {
@@ -79,6 +91,7 @@ model Customer {
   userId         String
   user           User           @relation(fields: [userId], references: [id])
   lastEventAt    DateTime?
+  accounts       Account[]
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
@@ -86,18 +99,67 @@ model Customer {
   @@map("customers")
 }
 
+model Account {
+  id             String         @id @default(uuid())
+  unitAccountId  String         @unique
+  customerId     String
+  customer       Customer       @relation(fields: [customerId], references: [id])
+  userId         String
+  user           User           @relation(fields: [userId], references: [id])
+  depositProduct String
+  status         AccountStatus  @default(Open)
+  currency       String         @default("USD")
+  balance        BigInt         @default(0)
+  hold           BigInt         @default(0)
+  available      BigInt         @default(0)
+  routingNumber  String
+  accountNumber  String
+  tags           Json?
+  lastEventAt    DateTime?
+  transactions   Transaction[]
+  webhookEvents  WebhookEvent[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([userId])
+  @@index([customerId])
+  @@map("accounts")
+}
+
+model Transaction {
+  id                String               @id @default(uuid())
+  unitTransactionId String               @unique
+  accountId         String
+  account           Account              @relation(fields: [accountId], references: [id])
+  type              String
+  direction         TransactionDirection
+  amount            BigInt
+  balance           BigInt
+  summary           String
+  tags              Json?
+  unitCreatedAt     DateTime
+  lastEventAt       DateTime?
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@index([accountId, unitCreatedAt])
+  @@map("transactions")
+}
+
 model WebhookEvent {
-  id            String              @id @default(uuid())
-  unitEventId   String              @unique
+  id            String             @id @default(uuid())
+  unitEventId   String             @unique
   type          String
   payload       Json
   applicationId String?
-  application   Application?        @relation(fields: [applicationId], references: [id])
-  status        WebhookEventStatus  @default(Pending)
-  receivedAt    DateTime            @default(now())
+  application   Application?       @relation(fields: [applicationId], references: [id])
+  accountId     String?
+  account       Account?           @relation(fields: [accountId], references: [id])
+  status        WebhookEventStatus @default(Pending)
+  receivedAt    DateTime           @default(now())
   processedAt   DateTime?
   error         String?
-  createdAt     DateTime            @default(now())
+  createdAt     DateTime           @default(now())
 
   @@index([status])
   @@map("webhook_events")
