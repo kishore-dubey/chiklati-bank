@@ -45,7 +45,7 @@ resource "aws_ecs_task_definition" "api" {
     essential         = true
     command           = ["node", "dist/server.js"]
     workingDirectory  = "/app/apps/api"
-    memoryReservation = 300
+    memoryReservation = 250
     portMappings      = [{ containerPort = 4000, hostPort = 4000, protocol = "tcp" }]
     environment       = concat(local.api_worker_env, [{ name = "PORT", value = "4000" }])
     secrets           = local.api_worker_secrets
@@ -76,7 +76,7 @@ resource "aws_ecs_task_definition" "worker" {
     essential         = true
     command           = ["node", "dist/worker.js"]
     workingDirectory  = "/app/apps/api"
-    memoryReservation = 200
+    memoryReservation = 150
     environment       = concat(local.api_worker_env, [{ name = "PORT", value = "4000" }])
     secrets           = local.api_worker_secrets
     logConfiguration = {
@@ -104,7 +104,7 @@ resource "aws_ecs_task_definition" "web" {
     name              = "web"
     image             = "${aws_ecr_repository.web.repository_url}:latest"
     essential         = true
-    memoryReservation = 380
+    memoryReservation = 300
     portMappings      = [{ containerPort = 3000, hostPort = 3000, protocol = "tcp" }]
     environment = [
       { name = "NODE_ENV", value = "production" },
