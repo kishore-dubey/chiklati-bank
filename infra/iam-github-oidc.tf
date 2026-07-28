@@ -22,10 +22,15 @@ data "aws_iam_policy_document" "github_deploy_assume" {
       variable = "token.actions.githubusercontent.com:aud"
       values   = ["sts.amazonaws.com"]
     }
+    # GitHub now embeds immutable owner/repo IDs in the sub claim
+    # (repo:owner@OWNER_ID/repo@REPO_ID:ref:...), not the classic
+    # repo:owner/repo:ref:... format -- confirmed by decoding a real token
+    # from this repo. StringLike + wildcards tolerates the IDs without
+    # having to hardcode them.
     condition {
-      test     = "StringEquals"
+      test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repo}:ref:refs/heads/main"]
+      values   = ["repo:${split("/", var.github_repo)[0]}@*/${split("/", var.github_repo)[1]}@*:ref:refs/heads/main"]
     }
   }
 }

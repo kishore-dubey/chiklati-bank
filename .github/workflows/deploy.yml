@@ -20,16 +20,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # TEMPORARY debug step -- remove once the OIDC assume-role issue is
-      # resolved. Prints the actual claims GitHub is issuing so they can be
-      # compared byte-for-byte against the IAM role's trust policy condition.
-      # Not sensitive: sub/aud/repo/ref are identity metadata, not secrets.
-      - name: Debug OIDC token claims
-        run: |
-          TOKEN=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sts.amazonaws.com" | jq -r '.value')
-          echo "$TOKEN" | cut -d. -f2 | base64 -d 2>/dev/null | jq . || echo "$TOKEN" | cut -d. -f2
-
       # Requires two repo VARIABLES (Settings -> Secrets and variables ->
       # Actions -> Variables) set after `terraform apply` in infra/:
       #   AWS_DEPLOY_ROLE_ARN -> output "github_deploy_role_arn"
