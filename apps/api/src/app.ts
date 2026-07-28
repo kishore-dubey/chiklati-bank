@@ -23,9 +23,10 @@ export function buildApp(): FastifyInstance {
   app.register(paymentsRoutes);
   app.register(cardsRoutes);
 
-  // Wraps Unit's own /sandbox/* simulation endpoints -- meaningless (and
-  // absent) outside Unit's sandbox environment, so never registered in prod.
-  if (env.NODE_ENV !== "production") {
+  // Wraps Unit's own /sandbox/* simulation endpoints -- meaningless outside
+  // Unit's sandbox environment. Gated by its own flag (not NODE_ENV) so a
+  // deployed container can run NODE_ENV=production while still opting in.
+  if (env.ENABLE_SANDBOX_ROUTES) {
     app.register(sandboxRoutes);
   }
 

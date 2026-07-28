@@ -1,0 +1,26 @@
+# Never let real secrets into a Docker build context.
+.env
+.env.local
+.env.*.local
+apps/**/.env
+apps/**/.env.local
+apps/**/.env.*.local
+packages/**/.env
+
+# dependencies / build output / caches -- reinstalled and rebuilt inside the image
+node_modules
+.pnpm-store
+dist
+build
+.next
+out
+.turbo
+
+# vcs / editor / misc
+.git
+.gitignore
+.idea
+*.log
+npm-debug.log*
+pnpm-debug.log*
+.DS_Store

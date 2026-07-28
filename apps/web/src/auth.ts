@@ -5,6 +5,11 @@ import { prisma } from "@chiklati/db";
 import { loginSchema } from "@chiklati/shared";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  // Auth.js only auto-trusts the request Host in development or on Vercel;
+  // self-hosted behind Caddy in production needs this set explicitly, or
+  // every auth request 500s with "UntrustedHost" (confirmed running the
+  // built container with NODE_ENV=production before this fix existed).
+  trustHost: true,
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
   providers: [

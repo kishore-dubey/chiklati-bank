@@ -40,3 +40,10 @@ coverage/
 # misc
 *.tsbuildinfo
 .env.vault
+
+# terraform (note: .terraform.lock.hcl is intentionally NOT ignored -- commit it)
+infra/**/.terraform/
+infra/terraform.tfvars
+infra/**/*.tfplan
+infra/**/terraform.tfstate
+infra/**/terraform.tfstate.backup

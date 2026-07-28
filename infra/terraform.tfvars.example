@@ -1,0 +1,14 @@
+# Copy to infra/terraform.tfvars (gitignored) and fill in real values.
+# Never commit terraform.tfvars.
+
+aws_region   = "us-east-1"
+aws_profile  = "chiklati-bank"
+project_name = "chiklati-bank"
+github_repo  = "kishore-dubey/chiklati-bank"
+
+db_password = "CHANGE_ME"
+
+unit_api_token       = "CHANGE_ME"
+unit_webhook_secret  = "CHANGE_ME"
+nextauth_secret      = "CHANGE_ME"
+internal_api_secret  = "CHANGE_ME"
