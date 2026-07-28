@@ -1,9 +1,20 @@
+# minimum_healthy_percent=0 / maximum_percent=100 forces a stop-then-start
+# ("recreate") deployment instead of ECS's default rolling deployment
+# (100/200), which tries to run the new task alongside the old one during
+# a deploy. That default is incompatible with a single host-networked
+# instance: two generations of a service would double the memory need and,
+# for api/web, collide on the same fixed host port. Confirmed via a real
+# "unable to place a task -- insufficient memory" service event.
+
 resource "aws_ecs_service" "api" {
   name            = "${var.project_name}-api"
   cluster         = aws_ecs_cluster.main.id
   task_definition = aws_ecs_task_definition.api.arn
   desired_count   = 1
   launch_type     = "EC2"
+
+  deployment_minimum_healthy_percent = 0
+  deployment_maximum_percent         = 100
 
   depends_on = [aws_instance.main]
 
@@ -23,6 +34,9 @@ resource "aws_ecs_service" "worker" {
   desired_count   = 1
   launch_type     = "EC2"
 
+  deployment_minimum_healthy_percent = 0
+  deployment_maximum_percent         = 100
+
   depends_on = [aws_instance.main]
 
   lifecycle {
@@ -36,6 +50,9 @@ resource "aws_ecs_service" "web" {
   task_definition = aws_ecs_task_definition.web.arn
   desired_count   = 1
   launch_type     = "EC2"
+
+  deployment_minimum_healthy_percent = 0
+  deployment_maximum_percent         = 100
 
   depends_on = [aws_instance.main]
 

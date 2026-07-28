@@ -155,8 +155,13 @@ jobs:
 
             # --desired-count 1 explicitly: the worker service was scaled to
             # 0 in the "Free capacity" step above and must be restored here.
+            # --deployment-configuration forces stop-then-start instead of
+            # ECS's default rolling deploy, which needs room for old+new
+            # tasks simultaneously -- impossible on one host-networked
+            # instance (confirmed via a real "insufficient memory" failure).
             aws ecs update-service --cluster "$ECS_CLUSTER" --service "$SERVICE" \
-              --task-definition "$NEW_ARN" --desired-count 1 >/dev/null
+              --task-definition "$NEW_ARN" --desired-count 1 \
+              --deployment-configuration minimumHealthyPercent=0,maximumPercent=100 >/dev/null
           }
 
           deploy_service "$PROJECT_NAME-api" "$PROJECT_NAME-api" "$ECR_REGISTRY/$PROJECT_NAME-api:${{ github.sha }}" 250

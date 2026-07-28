@@ -11,6 +11,6 @@ terraform {
     encrypt        = true
     # Backend blocks can't reference variables, so the named profile has to
     # be repeated here even though providers.tf also sets it.
-    profile        = "chiklati-bank"
+    profile = "chiklati-bank"
   }
 }
