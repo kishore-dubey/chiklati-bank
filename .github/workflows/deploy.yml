@@ -90,8 +90,21 @@ jobs:
           # ~700MB of that -- confirmed via `aws ecs describe-container-instances`
           # that leaving this at the api service's own reservation (250MB)
           # left too little headroom for this task to ever get placed.
+          #
+          # .family is explicitly overridden to its own distinct family --
+          # `register-task-definition` decides which family gets the new
+          # revision purely from this field, and this JSON was copied from
+          # the api task definition. Without this override, registering it
+          # creates a NEW REVISION OF chiklati-bank-api ITSELF, with the
+          # migration command baked in -- which the next "Deploy services"
+          # step then inherits as the "latest" api revision, permanently
+          # replacing the real server command. This actually happened and
+          # crash-looped the api service (confirmed via CloudWatch: a task
+          # started under the api service was running `prisma migrate
+          # deploy`, exiting immediately, and being restarted every ~10s).
           jq --arg IMAGE "$NEW_IMAGE" '
-            .containerDefinitions[0].image = $IMAGE
+            .family = "'"$PROJECT_NAME"'-api-migrate"
+            | .containerDefinitions[0].image = $IMAGE
             | .containerDefinitions[0].command = ["pnpm","--filter","@chiklati/db","run","migrate:deploy"]
             | .containerDefinitions[0].workingDirectory = "/app"
             | .containerDefinitions[0].memoryReservation = 100
@@ -129,23 +142,45 @@ jobs:
         run: |
           set -euo pipefail
 
-          # memoryReservation is set explicitly on every deploy (matching
-          # infra/ecs-task-definitions.tf) rather than trusting whatever the
-          # previous revision had -- the task defs' `ignore_changes` lifecycle
-          # rule means a `terraform apply` alone won't fix already-running
-          # services if these ever drift.
+          # Every field that matters is set explicitly here -- image,
+          # memoryReservation, command, workingDirectory, portMappings --
+          # rather than trusting whatever the "latest" revision of the
+          # family already has. This is deliberately defensive: the task
+          # defs' `ignore_changes` lifecycle rule means `terraform apply`
+          # alone can't fix a live service if its revision ever drifts from
+          # what's in infra/ecs-task-definitions.tf, and a previous version
+          # of this workflow proved that drift can actually happen (the
+          # migration step once registered a broken revision under this
+          # same family -- see the comment in "Run database migration").
           deploy_service() {
             local SERVICE=$1
             local FAMILY=$2
             local IMAGE=$3
             local MEMORY=$4
+            local COMMAND=$5   # JSON array string, or "null" for no override
+            local WORKDIR=$6
+            local PORT=$7      # container/host port number, or "" for none
 
             aws ecs describe-task-definition --task-definition "$FAMILY" \
               --query 'taskDefinition' > "$FAMILY-base.json"
 
-            jq --arg IMAGE "$IMAGE" --argjson MEMORY "$MEMORY" '
+            PORT_MAPPINGS="[]"
+            if [ -n "$PORT" ]; then
+              PORT_MAPPINGS="[{\"containerPort\":$PORT,\"hostPort\":$PORT,\"protocol\":\"tcp\"}]"
+            fi
+
+            # command: explicit null means "no override" -- deleting the key
+            # rather than setting it to a literal null, since it's safer to
+            # not assume the ECS API treats an explicit null the same as an
+            # absent field.
+            jq --arg IMAGE "$IMAGE" --argjson MEMORY "$MEMORY" \
+               --argjson COMMAND "$COMMAND" --arg WORKDIR "$WORKDIR" \
+               --argjson PORTMAPPINGS "$PORT_MAPPINGS" '
               .containerDefinitions[0].image = $IMAGE
               | .containerDefinitions[0].memoryReservation = $MEMORY
+              | (if $COMMAND == null then del(.containerDefinitions[0].command) else .containerDefinitions[0].command = $COMMAND end)
+              | .containerDefinitions[0].workingDirectory = $WORKDIR
+              | .containerDefinitions[0].portMappings = $PORTMAPPINGS
               | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)
             ' "$FAMILY-base.json" > "$FAMILY-new.json"
 
@@ -164,9 +199,12 @@ jobs:
               --deployment-configuration minimumHealthyPercent=0,maximumPercent=100 >/dev/null
           }
 
-          deploy_service "$PROJECT_NAME-api" "$PROJECT_NAME-api" "$ECR_REGISTRY/$PROJECT_NAME-api:${{ github.sha }}" 250
-          deploy_service "$PROJECT_NAME-worker" "$PROJECT_NAME-worker" "$ECR_REGISTRY/$PROJECT_NAME-api:${{ github.sha }}" 150
-          deploy_service "$PROJECT_NAME-web" "$PROJECT_NAME-web" "$ECR_REGISTRY/$PROJECT_NAME-web:${{ github.sha }}" 300
+          deploy_service "$PROJECT_NAME-api" "$PROJECT_NAME-api" "$ECR_REGISTRY/$PROJECT_NAME-api:${{ github.sha }}" 250 \
+            '["node","dist/server.js"]' "/app/apps/api" 4000
+          deploy_service "$PROJECT_NAME-worker" "$PROJECT_NAME-worker" "$ECR_REGISTRY/$PROJECT_NAME-api:${{ github.sha }}" 150 \
+            '["node","dist/worker.js"]' "/app/apps/api" ""
+          deploy_service "$PROJECT_NAME-web" "$PROJECT_NAME-web" "$ECR_REGISTRY/$PROJECT_NAME-web:${{ github.sha }}" 300 \
+            'null' "/app" 3000
 
           echo "Waiting for services to stabilize..."
           aws ecs wait services-stable --cluster "$ECS_CLUSTER" \
