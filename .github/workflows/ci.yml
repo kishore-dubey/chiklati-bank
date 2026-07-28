@@ -8,6 +8,33 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    # apps/api/vitest.config.ts hardcodes DATABASE_URL/REDIS_URL pointing at
+    # the same ports the local docker-compose.yml uses (5433/6380) -- these
+    # service containers match that exactly so the integration tests have
+    # something to connect to on the runner.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: chiklati
+          POSTGRES_PASSWORD: chiklati
+          POSTGRES_DB: chiklati_bank
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U chiklati -d chiklati_bank"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6380:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
 
@@ -22,6 +49,11 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Apply migrations to the test database
+        run: pnpm --filter @chiklati/db run migrate:deploy
+        env:
+          DATABASE_URL: postgresql://chiklati:chiklati@localhost:5433/chiklati_bank?schema=public
 
       - name: Lint
         run: pnpm lint
