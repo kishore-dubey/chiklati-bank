@@ -17,6 +17,9 @@ This is a portfolio/POC project, not a production bank. It exists to demonstrate
 - [Running the app](#running-the-app)
 - [Testing](#testing)
 - [Project structure](#project-structure)
+- [Data model](#data-model)
+- [Architectural patterns](#architectural-patterns)
+- [Deployment (AWS)](#deployment-aws)
 - [Known limitations](#known-limitations)
 - [License](#license)
 
@@ -63,7 +66,24 @@ packages/
 
 Money movement (Book/ACH/Wire payments, card purchases) all converges on one pessimistic-locked write path in `accounts.repository.ts`. Everything else — application status, account status, card status, payment status — updates through the same shape: a Unit webhook arrives, gets HMAC-verified and persisted, then an async worker resolves the relevant local row and applies the update only if the event is newer than what's already recorded.
 
-See `CONTEXT.md` for a fuller phase-by-phase breakdown of what's been built and the patterns to follow when extending it.
+### Domain modules (`apps/api/src/modules/`)
+
+Each follows the same Controller → Service → Repository → Mapper shape:
+
+- `applications/` — Individual/Business application submission, mapped to/from Unit.
+- `customers/` — read-only list of the user's Unit customers (created via approved applications).
+- `accounts/` — deposit account creation/listing, `applyTransactionCreated` (the one pessimistic-locked ledger write path everything else reuses).
+- `counterparties/` — ACH counterparty creation (for ACH payments).
+- `payments/` — Book/ACH/Wire payment creation, status tracking.
+- `cards/` — virtual card issuance + lifecycle actions.
+- `sandbox/` — wraps Unit's own `/sandbox/*` simulation endpoints (ACH transmit/clear, Wire transmit, card purchase). Registered only when `ENABLE_SANDBOX_ROUTES=true` (independent of `NODE_ENV`, so a production-mode deployment can still opt in for demo purposes).
+- `webhooks/` — HMAC-verified ingestion, `webhook_events` audit table, BullMQ-dispatched async processing (`webhook-event.processor.ts` dispatches by event-type prefix to per-domain handlers: `account-event.handler.ts`, `transaction-event.handler.ts`, `payment-event.handler.ts`, `card-event.handler.ts`).
+
+### apps/web routes
+
+`/onboarding` (individual/business application form with sandbox-fill buttons), `/accounts/[id]`, `/payments`, `/payments/new`, `/payments/[id]`, `/cards`, `/cards/new`, `/cards/[id]`, `/dashboard` (post-login home).
+
+**`/dashboard`** is the action hub: Quick actions (open account / send payment / issue card), Your cards (inline freeze/unfreeze/close/report actions via the same `CardActions` component the card detail page uses), Customers & accounts, Recent payments.
 
 ## Tech stack
 
@@ -79,6 +99,8 @@ See `CONTEXT.md` for a fuller phase-by-phase breakdown of what's been built and 
 | Testing | Vitest |
 | Monorepo | pnpm workspaces + Turborepo |
 | Banking provider | [Unit](https://unit.co) (sandbox) |
+| Infra | Terraform, AWS (ECS on EC2, RDS, ElastiCache, ECR, SSM) |
+| CI/CD | GitHub Actions (OIDC to AWS, no long-lived keys) |
 
 ## Prerequisites
 
@@ -180,12 +202,43 @@ packages/db/prisma/ schema.prisma, migrations/, seed.ts
 packages/shared/src/ one folder per domain, *.schema.ts pairs (input schema + response schema)
 ```
 
+## Data model
+
+`User → Application → Customer → Account → Transaction`, with `Payment` and `Card` both producing `Transaction` rows (via nullable `paymentId`/`cardId` FKs) that flow through the same `applyTransactionCreated` pessimistic-locked write. `Counterparty` supports ACH payments. `WebhookEvent` is the audit trail, with nullable FKs back to whichever domain row an event applied to.
+
+## Architectural patterns
+
+Conventions established across the codebase — follow these when extending it:
+
+- **Money**: always `BigInt`/cents in the DB and API layer; DTOs carry money as regex-validated numeric strings (`z.string().regex(/^\d+$/)`) since BigInt doesn't JSON-serialize; `Number(...)` conversion happens only at the Unit-request-building boundary.
+- **Idempotency**: every state-changing POST uses `createIdempotencyHooks(scope)` (Redis-backed, keyed by `scope:userId:Idempotency-Key`). Give each distinct route its own scope.
+- **Ledger writes**: only `applyTransactionCreated` (in `accounts.repository.ts`) touches balances, always inside `SELECT ... FOR UPDATE` + a `lastEventAt` staleness guard. Never add a second balance-mutation path — new money-producing features (a new payment rail, a new card action) get their transactions linked via a new nullable FK on `Transaction`, not a new write path.
+- **Webhooks**: subscription uses `includeResources: false`, so handlers fetch full resources from Unit rather than trusting event payload attributes. Every handler follows the same shape: resolve the relationship id via `getRelationshipId`, look up the local row, apply with a `lastEventAt` guard, return `{ <entity>Id?, applied: boolean }` for `webhook-event.processor.ts` to record.
+- **Sandbox-only actions**: live under the `sandbox` module, gated by `ENABLE_SANDBOX_ROUTES`, never mutate local state directly — they only trigger Unit's simulation; the resulting webhook is what updates local rows. This keeps mutation to one path even for test tooling.
+- **Empirical-first**: Unit's docs have repeatedly been incomplete or wrong (missing required fields, wrong JSON:API `type` strings, endpoints not fully documented). The working pattern: attempt a real sandbox call, let a 400 reveal the next missing field, and when an enum is involved, deliberately send an invalid value — Unit's error response lists the full allowed set verbatim.
+- **Full pipeline before considering anything done**: `pnpm lint && pnpm typecheck && pnpm test && pnpm build`. Build matters specifically for `apps/web` — its `tsconfig` (`moduleResolution: "Bundler"`) is more lenient than Next.js's actual Turbopack bundler, so `tsc --noEmit` passing does not guarantee `next build` passes. For Docker/deployment changes, an actual `docker build` + container run against real local Postgres/Redis is the only thing that catches container-specific gaps (see the OpenSSL, Prisma-engine-tracing, Turborepo env-filtering, and NextAuth `trustHost` issues below — none of them showed up in local `pnpm dev`/`pnpm build`).
+- **Verification standard**: every feature is verified against the *real* Unit sandbox (curl) and walked through in a real browser, not just unit-tested. Webhook delivery in particular has been observed to batch/delay significantly, which is why the system is built to reconcile from webhooks rather than trust synchronous API responses.
+
+## Deployment (AWS)
+
+Deployed to a single AWS free-tier-eligible EC2 instance running ECS (EC2 launch type, not Fargate — Fargate has no free-tier allowance). Infra is in `infra/` (Terraform); CI/CD is in `.github/workflows/`.
+
+- **Compute**: one `t3.micro` EC2 instance is the ECS cluster's only container instance, running the `api`, `worker`, and `web` tasks (all `network_mode = "host"`, since there's only ever one instance). Caddy runs natively on the host (not as an ECS task), terminating TLS on 80/443 via the instance's own AWS-assigned public DNS name and a free Let's Encrypt certificate — this avoids needing an ALB (no free tier) or a purchased domain.
+- **Data layer**: RDS Postgres (`db.t3.micro`) and ElastiCache Redis (`cache.t3.micro`), both free-tier-eligible, in the default VPC's public subnets but not internet-reachable (`publicly_accessible = false` + security groups scoped to the EC2 host only — no NAT Gateway, to stay free).
+- **Secrets**: SSM Parameter Store (`SecureString`, default AWS-managed KMS key — free) referenced by ARN in ECS task definitions, not Secrets Manager (which bills per secret).
+- **CI** (`ci.yml`): lint, typecheck, test (against Postgres/Redis service containers matching the local dev ports), build, audit — on every PR and push to `main`.
+- **CD** (`deploy.yml`): authenticates to AWS via GitHub OIDC (no long-lived AWS keys in GitHub), builds and pushes both images to ECR, runs `prisma migrate deploy` as a one-off ECS task (the only way to reach RDS from outside the VPC, since GitHub-hosted runners aren't in it), then registers new task-definition revisions and rolls the three services.
+- **Images**: `apps/api/Dockerfile` ships the full built monorepo (not a `pnpm deploy`-flattened image) so the same image can serve the api server, the worker, *and* the migration task via command/working-directory overrides — flattening broke `pnpm --filter` and dropped the `prisma` CLI's bin symlink. `apps/web/Dockerfile` uses Next's `output: "standalone"`, with an explicit `COPY` of `@chiklati/db`/`@chiklati/shared` into the image's `node_modules` since Next's file-tracer doesn't follow pnpm workspace symlinks for local packages (confirmed empirically — real npm deps like `@prisma/client` trace fine, local workspace packages don't).
+- **Known cost realities**: EC2/RDS/ElastiCache free tier is 12 months only; the EC2 root volume must be ≥30GB (the ECS-optimized AMI's snapshot floor) which combined with RDS's 20GB exceeds the free tier's 30GB combined EBS allowance by ~$1.60/month; ECR image sizes (api ~830MB, web ~350MB) likely exceed the 500MB/12mo free tier by a few cents/month. None of these were worth trading Dockerfile robustness for.
+
+See `infra/terraform.tfvars.example` for the variables a fresh `terraform apply` needs.
+
 ## Known limitations
 
 - **Card PAN/CVV/PIN reveal** is not implemented — Unit only exposes raw card data through their own hosted iframe with a 2FA-elevated customer token, a distinct sub-project deliberately left out of scope.
 - **Physical cards** are not implemented — virtual debit cards only.
 - **Individual card issuance** currently fails in this specific sandbox org because its deposit product has no card BIN assigned for Individual/sole-proprietor customers — a Unit dashboard configuration matter, not an application bug. Business card issuance is unaffected.
-- **CI/CD and cloud deployment** are not yet built (planned as a future phase — see `CONTEXT.md`).
+- **Programmatic card authorization** (`/sandbox/authorization-requests/card-transaction`, real-time auth webhooks) is not built — would need its own webhook registration.
 
 ## License
 

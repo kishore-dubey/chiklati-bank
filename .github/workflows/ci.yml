@@ -65,7 +65,15 @@ jobs:
         run: pnpm test
 
       - name: Build
+        # next build executes server code while collecting page data, which
+        # runs webEnvSchema validation -- these only need to be well-formed,
+        # never connected to (same issue as apps/web/Dockerfile's build stage).
         run: pnpm build
+        env:
+          DATABASE_URL: postgresql://chiklati:chiklati@localhost:5433/chiklati_bank?schema=public
+          NEXTAUTH_URL: http://localhost:3000
+          NEXTAUTH_SECRET: ci-build-placeholder-unused-at-runtime
+          INTERNAL_API_SECRET: ci-build-placeholder-unused-at-runtime
 
       - name: Audit
         run: pnpm audit --audit-level=high
