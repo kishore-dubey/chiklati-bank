@@ -19,6 +19,11 @@ variable "github_repo" {
   default     = "kishore-dubey/chiklati-bank"
 }
 
+variable "public_domain" {
+  description = "Public hostname for the app (e.g. a DuckDNS subdomain pointed at the Elastic IP). Let's Encrypt refuses to issue certs for *.amazonaws.com, so the EC2 instance's own public DNS name can't be used here -- confirmed via a real rejected ACME order."
+  type        = string
+}
+
 variable "ec2_instance_type" {
   description = "Free tier: t2.micro or t3.micro depending on account/region eligibility -- check the Billing console's Free Tier page before applying"
   type        = string

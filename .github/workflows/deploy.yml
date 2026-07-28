@@ -159,7 +159,10 @@ jobs:
             local MEMORY=$4
             local COMMAND=$5   # JSON array string, or "null" for no override
             local WORKDIR=$6
-            local PORT=$7      # container/host port number, or "" for none
+            local PORT=$7       # container/host port number, or "" for none
+            local ENV_OVERRIDES=${8:-'{}'}  # JSON object {name: value} -- patches named
+                                             # env vars in place, self-healing regardless
+                                             # of what a stale revision already had.
 
             aws ecs describe-task-definition --task-definition "$FAMILY" \
               --query 'taskDefinition' > "$FAMILY-base.json"
@@ -175,12 +178,17 @@ jobs:
             # absent field.
             jq --arg IMAGE "$IMAGE" --argjson MEMORY "$MEMORY" \
                --argjson COMMAND "$COMMAND" --arg WORKDIR "$WORKDIR" \
-               --argjson PORTMAPPINGS "$PORT_MAPPINGS" '
+               --argjson PORTMAPPINGS "$PORT_MAPPINGS" --argjson ENV_OVERRIDES "$ENV_OVERRIDES" '
               .containerDefinitions[0].image = $IMAGE
               | .containerDefinitions[0].memoryReservation = $MEMORY
               | (if $COMMAND == null then del(.containerDefinitions[0].command) else .containerDefinitions[0].command = $COMMAND end)
               | .containerDefinitions[0].workingDirectory = $WORKDIR
               | .containerDefinitions[0].portMappings = $PORTMAPPINGS
+              | .containerDefinitions[0].environment = (
+                  (.containerDefinitions[0].environment // [])
+                  | map(select(.name as $n | ($ENV_OVERRIDES | has($n)) | not))
+                  + ($ENV_OVERRIDES | to_entries | map({name: .key, value: .value}))
+                )
               | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)
             ' "$FAMILY-base.json" > "$FAMILY-new.json"
 
@@ -203,8 +211,12 @@ jobs:
             '["node","dist/server.js"]' "/app/apps/api" 4000
           deploy_service "$PROJECT_NAME-worker" "$PROJECT_NAME-worker" "$ECR_REGISTRY/$PROJECT_NAME-api:${{ github.sha }}" 150 \
             '["node","dist/worker.js"]' "/app/apps/api" ""
+          # NEXTAUTH_URL patched explicitly to the current APP_PUBLIC_URL --
+          # this is exactly the field that went stale when the public
+          # hostname moved off the (Let's-Encrypt-blocked) EC2 DNS name to
+          # a DuckDNS domain, and it's under Terraform's ignore_changes.
           deploy_service "$PROJECT_NAME-web" "$PROJECT_NAME-web" "$ECR_REGISTRY/$PROJECT_NAME-web:${{ github.sha }}" 300 \
-            'null' "/app" 3000
+            'null' "/app" 3000 "{\"NEXTAUTH_URL\":\"${{ vars.APP_PUBLIC_URL }}\"}"
 
           echo "Waiting for services to stabilize..."
           aws ecs wait services-stable --cluster "$ECS_CLUSTER" \

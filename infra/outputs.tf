@@ -11,11 +11,11 @@ output "ecr_web_repository_url" {
 }
 
 output "public_url" {
-  value = "https://${aws_eip.main.public_dns}"
+  value = "https://${var.public_domain}"
 }
 
 output "webhook_url" {
-  value = "https://${aws_eip.main.public_dns}/webhooks/unit"
+  value = "https://${var.public_domain}/webhooks/unit"
 }
 
 output "github_deploy_role_arn" {

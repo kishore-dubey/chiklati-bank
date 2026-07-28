@@ -16,7 +16,7 @@ resource "aws_instance" "main" {
 
   user_data = templatefile("${path.module}/templates/user_data.sh.tpl", {
     ecs_cluster_name = aws_ecs_cluster.main.name
-    public_dns       = aws_eip.main.public_dns
+    public_domain    = var.public_domain
   })
 
   tags = { Name = "${var.project_name}-host" }

@@ -1,10 +1,14 @@
 # Copy to infra/terraform.tfvars (gitignored) and fill in real values.
 # Never commit terraform.tfvars.
 
-aws_region   = "us-east-1"
-aws_profile  = "chiklati-bank"
-project_name = "chiklati-bank"
-github_repo  = "kishore-dubey/chiklati-bank"
+aws_region     = "us-east-1"
+aws_profile    = "chiklati-bank"
+project_name   = "chiklati-bank"
+github_repo    = "kishore-dubey/chiklati-bank"
+# DuckDNS (or any) subdomain pointed at the Elastic IP -- Let's Encrypt
+# refuses to issue certs for *.amazonaws.com, so this can't be the EC2
+# instance's own public DNS name.
+public_domain  = "CHANGE_ME.duckdns.org"
 
 db_password = "CHANGE_ME"
 

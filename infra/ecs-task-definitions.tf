@@ -110,7 +110,7 @@ resource "aws_ecs_task_definition" "web" {
       { name = "NODE_ENV", value = "production" },
       { name = "PORT", value = "3000" },
       { name = "HOSTNAME", value = "0.0.0.0" },
-      { name = "NEXTAUTH_URL", value = "https://${aws_eip.main.public_dns}" },
+      { name = "NEXTAUTH_URL", value = "https://${var.public_domain}" },
       { name = "API_URL", value = "http://localhost:4000" },
     ]
     secrets = [

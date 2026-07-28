@@ -17,9 +17,12 @@ fi
 
 # Caddy, installed as a static binary (not a package -- Amazon Linux 2's
 # repos don't reliably carry one) and run natively via systemd, not as an
-# ECS task. Terminates TLS on 80/443 using this instance's own AWS-assigned
-# public DNS name + a free Let's Encrypt cert, so no ALB (no free tier) or
-# purchased domain is needed.
+# ECS task. Terminates TLS on 80/443 via a free Let's Encrypt cert for
+# public_domain (e.g. a DuckDNS subdomain). NOT the EC2 instance's own
+# AWS-assigned public DNS name -- Let's Encrypt categorically refuses to
+# issue certificates for *.amazonaws.com identifiers ("forbidden by
+# policy", confirmed via a real rejected ACME order), so this domain must
+# point at the Elastic IP via its own DNS provider instead.
 CADDY_VERSION="2.8.4"
 curl -fsSL "https://github.com/caddyserver/caddy/releases/download/v$CADDY_VERSION/caddy_$${CADDY_VERSION}_linux_amd64.tar.gz" -o /tmp/caddy.tar.gz
 tar -xzf /tmp/caddy.tar.gz -C /usr/local/bin caddy
@@ -28,7 +31,7 @@ rm -f /tmp/caddy.tar.gz
 
 mkdir -p /etc/caddy
 cat > /etc/caddy/Caddyfile <<CADDYFILE
-${public_dns} {
+${public_domain} {
 	reverse_proxy /webhooks/* localhost:4000
 	reverse_proxy /health* localhost:4000
 	reverse_proxy * localhost:3000
